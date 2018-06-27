@@ -10,12 +10,13 @@
  * https://www.losant.com
  * */
 #include "DHT.h"
-
+#include <Ticker.h>
 #define DHTPIN 4     // what digital pin the DHT22 is conected to
 #define DHTTYPE DHT22   // there are multiple kinds of DHT sensors
 
 DHT dht(DHTPIN, DHTTYPE);
-
+bool readTemp = false;
+Ticker tick;
 void setup() {
   Serial.begin(9600);
   Serial.setTimeout(2000);
@@ -27,17 +28,14 @@ void setup() {
   Serial.println("-------------------------------------");
   Serial.println("Running DHT!");
   Serial.println("-------------------------------------");
-
+  delay(100);
+  tick.attach(1.0, checkTemp);
+  
+  pinMode(2, OUTPUT);
 }
 
-int timeSinceLastRead = 0;
-void loop() {
-
-  // Report every 2 seconds.
-  if(timeSinceLastRead > 2000) {
-    // Reading temperature or humidity takes about 250 milliseconds!
-    // Sensor readings may also be up to 2 seconds 'old' (its a very slow sensor)
-    float h = dht.readHumidity();
+void readSensor(){
+   float h = dht.readHumidity();
     // Read temperature as Celsius (the default)
     float t = dht.readTemperature();
     // Read temperature as Fahrenheit (isFahrenheit = true)
@@ -46,15 +44,12 @@ void loop() {
     // Check if any reads failed and exit early (to try again).
     if (isnan(h) || isnan(t) || isnan(f)) {
       Serial.println("Failed to read from DHT sensor!");
-      timeSinceLastRead = 0;
       return;
     }
-
     // Compute heat index in Fahrenheit (the default)
     float hif = dht.computeHeatIndex(f, h);
     // Compute heat index in Celsius (isFahreheit = false)
     float hic = dht.computeHeatIndex(t, h, false);
-
     Serial.print("Humidity: ");
     Serial.print(h);
     Serial.print(" %\t");
@@ -68,9 +63,20 @@ void loop() {
     Serial.print(" *C ");
     Serial.print(hif);
     Serial.println(" *F");
-
-    timeSinceLastRead = 0;
+  
+}
+void checkTemp(){
+  readTemp = true;
+}
+void loop() {
+  delay(500);
+  Serial.println("*** Looping ***");
+  if(readTemp){
+    readSensor();
+    readTemp = false;
+    digitalWrite(2, !digitalRead(2));
+    // digitalWrite(led, !digitalRead(led));  
+  }else{
+    Serial.println("readTemp = false");
   }
-  delay(100);
-  timeSinceLastRead += 100;
 }
