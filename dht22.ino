@@ -11,10 +11,19 @@
  * */
 #include "DHT.h"
 #include <Ticker.h>
+#include <ESP8266WiFi.h>
+#include <WiFiClient.h> 
+#include <ESP8266WebServer.h>
+#include <ESP8266HTTPClient.h>
+
 #define DHTPIN 4     // what digital pin the DHT22 is conected to
 #define DHTTYPE DHT22   // there are multiple kinds of DHT sensors
 
 DHT dht(DHTPIN, DHTTYPE);
+  const char *ssId ="honey";
+  const char *password ="biffenbamse";
+
+// const char *host = "www.90000.eu/gh/mcusd.php";
 bool readTemp = false;
 int numberOfLoops = 10;
 Ticker tick;
@@ -30,9 +39,80 @@ void setup() {
   Serial.println("Running DHT!");
   Serial.println("-------------------------------------");
   delay(100);
+
+  setupWifi();
+  
   tick.attach(1.0, checkTemp);
   
   pinMode(2, OUTPUT);
+}
+
+void checkTemp(){
+  readTemp = true;
+}
+void loop() {
+  delay(4000);
+
+  Serial.println("*** Looping ***");
+  readSensor();
+  /*
+  if(readTemp){
+    readSensor();
+    readTemp = false;
+    digitalWrite(2, !digitalRead(2));
+    // digitalWrite(led, !digitalRead(led));  
+  }else{
+    Serial.println("readTemp = false");
+  }
+
+  numberOfLoops--;
+  if(numberOfLoops == 0){
+    // goToSleep();
+  }
+  */
+}
+
+void setupWifi(){
+
+  delay(1000);
+  WiFi.mode(WIFI_OFF);        //Prevents reconnection issue (taking too long to connect)
+  delay(1000);
+  WiFi.mode(WIFI_STA);        //This line hides the viewing of ESP as wifi hotspot
+  
+  WiFi.begin(ssId, password);     //Connect to your WiFi router
+  Serial.println("");
+ 
+  Serial.print("Connecting");
+  // Wait for connection
+  while (WiFi.status() != WL_CONNECTED) {
+    delay(500);
+    Serial.print(".");
+  }
+ 
+  //If connection successful show IP address in serial monitor
+  Serial.println("");
+  Serial.print("Connected to ");
+  Serial.println(ssId);
+  Serial.print("IP address: ");
+  Serial.println(WiFi.localIP());  //IP address assigned to your ESP
+}
+
+void goToSleep(){
+    Serial.println("*** Goodnight ***");
+    ESP.deepSleep(20e6);
+}
+
+  void postData(float t, float ah, float sh){
+  HTTPClient http;
+  String d = "data={\"t\":" + String(t) + ",\"ah\":" + String(ah) +",\"sh\":" + String(sh) +"}";
+  Serial.println("Data: " + d);
+  http.begin("http://www.90000.eu/gh/mcusd.php");
+  http.addHeader("Content-Type", "application/x-www-form-urlencoded");
+  int code = http.POST(d);
+  String reply = http.getString();
+  Serial.println("Reply code: " + String(code));
+  Serial.println("Reply     : " + reply);
+  http.end();
 }
 
 void readSensor(){
@@ -64,26 +144,7 @@ void readSensor(){
     Serial.print(" *C ");
     Serial.print(hif);
     Serial.println(" *F");
-  
-}
-void checkTemp(){
-  readTemp = true;
-}
-void loop() {
-  delay(500);
-  Serial.println("*** Looping ***");
-  if(readTemp){
-    readSensor();
-    readTemp = false;
-    digitalWrite(2, !digitalRead(2));
-    // digitalWrite(led, !digitalRead(led));  
-  }else{
-    Serial.println("readTemp = false");
-  }
 
-  numberOfLoops--;
-  if(numberOfLoops == 0){
-    Serial.println("*** Goodnight ***");
-    ESP.deepSleep(20e6);
-  }
+    postData(t, h, h);
 }
+
