@@ -16,6 +16,7 @@
 
 DHT dht(DHTPIN, DHTTYPE);
 bool readTemp = false;
+int numberOfLoops = 10;
 Ticker tick;
 void setup() {
   Serial.begin(9600);
@@ -78,5 +79,11 @@ void loop() {
     // digitalWrite(led, !digitalRead(led));  
   }else{
     Serial.println("readTemp = false");
+  }
+
+  numberOfLoops--;
+  if(numberOfLoops == 0){
+    Serial.println("*** Goodnight ***");
+    ESP.deepSleep(20e6);
   }
 }
