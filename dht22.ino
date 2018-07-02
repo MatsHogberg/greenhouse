@@ -75,9 +75,11 @@ void loop() {
   delay(10000);
   loopCounter--;
   if(loopCounter == 0){
+    Serial.println("Reading and sending data...");
     // Upload data
     postData(greenHouseTemp, greenHouseHumidity, soilMoisture);
     loopCounter  = numberOfLoopsBetweenWrites; 
+    Serial.println("Reading and sending data done.");
   }
 }
 
