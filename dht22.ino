@@ -16,6 +16,7 @@
 #include <ESP8266WebServer.h>
 #include <ESP8266HTTPClient.h>
 
+#define SOILMOISTUREPIN 0 // Pin for soil moisture sensor
 #define DHTPIN 4     // what digital pin the DHT22 is conected to
 #define DHTTYPE DHT22   // there are multiple kinds of DHT sensors
 
@@ -25,7 +26,11 @@ DHT dht(DHTPIN, DHTTYPE);
 
 // const char *host = "www.90000.eu/gh/mcusd.php";
 bool readTemp = false;
-int numberOfLoops = 10;
+int numberOfLoopsBetweenWrites = 10;
+int loopCounter = numberOfLoopsBetweenWrites;
+float greenHouseTemp;
+float greenHouseHumidity;
+int soilMoisture;
 Ticker tick;
 void setup() {
   Serial.begin(9600);
@@ -41,20 +46,17 @@ void setup() {
   delay(100);
 
   setupWifi();
-  
-  tick.attach(1.0, checkTemp);
-  
+    
   pinMode(2, OUTPUT);
 }
 
-void checkTemp(){
-  readTemp = true;
-}
 void loop() {
-  delay(4000);
 
   Serial.println("*** Looping ***");
-  readSensor();
+  // readSensor();
+  greenHouseHumidity = readGreenHouseHumidity();
+  greenHouseTemp = readGreenHouseTemp();
+  soilMoisture = readSoilMoisture();
   /*
   if(readTemp){
     readSensor();
@@ -65,11 +67,18 @@ void loop() {
     Serial.println("readTemp = false");
   }
 
-  numberOfLoops--;
-  if(numberOfLoops == 0){
+  numberOfLoopsBetweenWrites--;
+  if(numberOfLoopsBetweenWrites == 0){
     // goToSleep();
   }
   */
+  delay(10000);
+  loopCounter--;
+  if(loopCounter == 0){
+    // Upload data
+    postData(greenHouseTemp, greenHouseHumidity, soilMoisture);
+    loopCounter  = numberOfLoopsBetweenWrites; 
+  }
 }
 
 void setupWifi(){
@@ -102,7 +111,10 @@ void goToSleep(){
     ESP.deepSleep(20e6);
 }
 
-  void postData(float t, float ah, float sh){
+void postData(float t, float ah, int sh){
+  if((WiFi.status() != WL_CONNECTED)){
+    setupWifi();
+  }
   HTTPClient http;
   String d = "data={\"t\":" + String(t) + ",\"ah\":" + String(ah) +",\"sh\":" + String(sh) +"}";
   Serial.println("Data: " + d);
@@ -113,6 +125,15 @@ void goToSleep(){
   Serial.println("Reply code: " + String(code));
   Serial.println("Reply     : " + reply);
   http.end();
+}
+float readGreenHouseHumidity(){
+  return dht.readHumidity();
+}
+float readGreenHouseTemp(){
+  return dht.readTemperature();
+}
+int readSoilMoisture(){
+    return analogRead(SOILMOISTUREPIN) + 5;
 }
 
 void readSensor(){
