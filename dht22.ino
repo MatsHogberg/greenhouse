@@ -10,19 +10,19 @@
  * https://www.losant.com
  * */
 #include "DHT.h"
-#include <Ticker.h>
 #include <ESP8266WiFi.h>
 #include <WiFiClient.h> 
 #include <ESP8266WebServer.h>
 #include <ESP8266HTTPClient.h>
 
-#define SOILMOISTUREPIN 0 // Pin for soil moisture sensor
-#define DHTPIN 4     // what digital pin the DHT22 is conected to
-#define DHTTYPE DHT22   // there are multiple kinds of DHT sensors
-
+#define SOILMOISTUREPIN 0     // Pin for soil moisture sensor
+#define DHTPIN 4              // what digital pin the DHT22 is conected to
+#define DHTTYPE DHT22         // there are multiple kinds of DHT sensors
+#define PUMP D3               // pin that controls the pump relay = red diode
+#define SOILMOISTUREPOWER D4  // Power to the soil moisture sensor = blue diode
 DHT dht(DHTPIN, DHTTYPE);
-  const char *ssId ="honey";
-  const char *password ="biffenbamse";
+const char *ssId ="honey";
+const char *password ="biffenbamse";
 
 // const char *host = "www.90000.eu/gh/mcusd.php";
 bool readTemp = false;
@@ -31,7 +31,7 @@ int loopCounter = numberOfLoopsBetweenWrites;
 float greenHouseTemp;
 float greenHouseHumidity;
 int soilMoisture;
-Ticker tick;
+
 void setup() {
   Serial.begin(9600);
   Serial.setTimeout(2000);
@@ -48,6 +48,8 @@ void setup() {
   setupWifi();
     
   pinMode(2, OUTPUT);
+  pinMode (D3, OUTPUT);
+  pinMode (D4, OUTPUT);
 }
 
 void loop() {
@@ -57,29 +59,18 @@ void loop() {
   greenHouseHumidity = readGreenHouseHumidity();
   greenHouseTemp = readGreenHouseTemp();
   soilMoisture = readSoilMoisture();
-  /*
-  if(readTemp){
-    readSensor();
-    readTemp = false;
-    digitalWrite(2, !digitalRead(2));
-    // digitalWrite(led, !digitalRead(led));  
-  }else{
-    Serial.println("readTemp = false");
-  }
 
-  numberOfLoopsBetweenWrites--;
-  if(numberOfLoopsBetweenWrites == 0){
-    // goToSleep();
-  }
-  */
   delay(10000);
   loopCounter--;
   if(loopCounter == 0){
+    digitalWrite(D3, HIGH);
+    
     Serial.println("Reading and sending data...");
     // Upload data
     postData(greenHouseTemp, greenHouseHumidity, soilMoisture);
     loopCounter  = numberOfLoopsBetweenWrites; 
     Serial.println("Reading and sending data done.");
+    digitalWrite(D3, LOW);
   }
 }
 
@@ -135,39 +126,9 @@ float readGreenHouseTemp(){
   return dht.readTemperature();
 }
 int readSoilMoisture(){
-    return analogRead(SOILMOISTUREPIN) + 5;
-}
-
-void readSensor(){
-   float h = dht.readHumidity();
-    // Read temperature as Celsius (the default)
-    float t = dht.readTemperature();
-    // Read temperature as Fahrenheit (isFahrenheit = true)
-    float f = dht.readTemperature(true);
-
-    // Check if any reads failed and exit early (to try again).
-    if (isnan(h) || isnan(t) || isnan(f)) {
-      Serial.println("Failed to read from DHT sensor!");
-      return;
-    }
-    // Compute heat index in Fahrenheit (the default)
-    float hif = dht.computeHeatIndex(f, h);
-    // Compute heat index in Celsius (isFahreheit = false)
-    float hic = dht.computeHeatIndex(t, h, false);
-    Serial.print("Humidity: ");
-    Serial.print(h);
-    Serial.print(" %\t");
-    Serial.print("Temperature: ");
-    Serial.print(t);
-    Serial.print(" *C ");
-    Serial.print(f);
-    Serial.print(" *F\t");
-    Serial.print("Heat index: ");
-    Serial.print(hic);
-    Serial.print(" *C ");
-    Serial.print(hif);
-    Serial.println(" *F");
-
-    postData(t, h, h);
+  digitalWrite(D4, HIGH);
+  delay(100);
+  int m = analogRead(SOILMOISTUREPIN) + 5;
+  digitalWrite(D4, LOW);
 }
 
