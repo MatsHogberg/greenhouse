@@ -15,7 +15,7 @@
 #include <ESP8266WebServer.h>
 #include <ESP8266HTTPClient.h>
 
-#define SOILMOISTUREPIN 0     // Pin for soil moisture sensor
+#define SOILMOISTUREPIN A0     // Pin for soil moisture sensor
 #define DHTPIN 4              // what digital pin the DHT22 is conected to
 #define DHTTYPE DHT22         // there are multiple kinds of DHT sensors
 #define PUMP D3               // pin that controls the pump relay = red diode
@@ -26,13 +26,21 @@ const char *password ="biffenbamse";
 
 // const char *host = "www.90000.eu/gh/mcusd.php";
 bool readTemp = false;
-int numberOfLoopsBetweenWrites = 10;
+int numberOfLoopsBetweenWrites = 100;
 int loopCounter = numberOfLoopsBetweenWrites;
 float greenHouseTemp;
 float greenHouseHumidity;
 int soilMoisture;
+int soilMoisturePin = A0;
+
+bool pumpIsOn = false;
+
+ESP8266WebServer server(8081);
 
 void setup() {
+  digitalWrite(D4, LOW);
+  digitalWrite(D3, LOW);
+  
   Serial.begin(9600);
   Serial.setTimeout(2000);
 
@@ -50,17 +58,28 @@ void setup() {
   pinMode(2, OUTPUT);
   pinMode (D3, OUTPUT);
   pinMode (D4, OUTPUT);
+  server.on("/", [](){
+    server.send(200, "text/html", "");
+  });
+  server.on("/status",[](){
+    server.send(200, "text/html", pumpIsOn?"1":"0");
+  });
+  server.on("/flip",[](){
+    setPump(!pumpIsOn);
+    server.send(200, "text/html", pumpIsOn?"1":"0"  );
+  });
+  server.begin();
 }
-
 void loop() {
 
   Serial.println("*** Looping ***");
   // readSensor();
+  server.handleClient();
   greenHouseHumidity = readGreenHouseHumidity();
   greenHouseTemp = readGreenHouseTemp();
   soilMoisture = readSoilMoisture();
 
-  delay(10000);
+  delay(1000);
   loopCounter--;
   if(loopCounter == 0){
     digitalWrite(D3, HIGH);
@@ -72,6 +91,17 @@ void loop() {
     Serial.println("Reading and sending data done.");
     digitalWrite(D3, LOW);
   }
+}
+
+bool setPump(bool onOrOff){
+  if(onOrOff){
+    pumpIsOn = true;
+    digitalWrite(D3, HIGH);
+  }else{
+    pumpIsOn = false;
+    digitalWrite(D3, LOW);
+  }
+  return pumpIsOn;
 }
 
 void setupWifi(){
@@ -97,6 +127,7 @@ void setupWifi(){
   Serial.println(ssId);
   Serial.print("IP address: ");
   Serial.println(WiFi.localIP());  //IP address assigned to your ESP
+  Serial.println("Starting web server");
 }
 
 void goToSleep(){
@@ -127,8 +158,10 @@ float readGreenHouseTemp(){
 }
 int readSoilMoisture(){
   digitalWrite(D4, HIGH);
-  delay(100);
-  int m = analogRead(SOILMOISTUREPIN) + 5;
+  delay(10);
+  int m = analogRead(soilMoisturePin);
   digitalWrite(D4, LOW);
+  Serial.println("Soil moisture: " + String(m));
+  return m;
 }
 
