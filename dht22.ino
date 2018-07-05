@@ -34,13 +34,30 @@ int soilMoisture;
 int soilMoisturePin = A0;
 
 bool pumpIsOn = false;
+const unsigned long timeBetweenPosts_ms = 1 * 60 * 60 * 1000;  // Once every hour;
+const unsigned long timeBetweenSensorReads_ms = 0.5 * 60 * 60 * 1000; // Once every half hour;
+const unsigned long timeBetweenChecks_ms = 10000;
+const unsigned long timeToRunPump_ms = 30 * 1000;
+
+
+
+unsigned long startPost_ms;
+unsigned long startRead_ms;
+unsigned long startCheck_ms;
+unsigned long turnPumpOff_ms;
+
+unsigned long current_ms;
 
 ESP8266WebServer server(8081);
 
 void setup() {
+  pinMode(2, OUTPUT); 
+  pinMode (D3, OUTPUT);
+  pinMode (D4, OUTPUT);
+
   digitalWrite(D4, LOW);
   digitalWrite(D3, LOW);
-  
+
   Serial.begin(9600);
   Serial.setTimeout(2000);
 
@@ -55,9 +72,6 @@ void setup() {
 
   setupWifi();
     
-  pinMode(2, OUTPUT);
-  pinMode (D3, OUTPUT);
-  pinMode (D4, OUTPUT);
   server.on("/", [](){
     server.send(200, "text/html", "");
   });
@@ -68,39 +82,57 @@ void setup() {
     setPump(!pumpIsOn);
     server.send(200, "text/html", pumpIsOn?"1":"0"  );
   });
-  server.begin();
-}
-void loop() {
-
-  Serial.println("*** Looping ***");
-  // readSensor();
-  server.handleClient();
   greenHouseHumidity = readGreenHouseHumidity();
   greenHouseTemp = readGreenHouseTemp();
   soilMoisture = readSoilMoisture();
 
-  delay(1000);
-  loopCounter--;
-  if(loopCounter == 0){
-    digitalWrite(D3, HIGH);
-    
-    Serial.println("Reading and sending data...");
-    // Upload data
-    postData(greenHouseTemp, greenHouseHumidity, soilMoisture);
-    loopCounter  = numberOfLoopsBetweenWrites; 
-    Serial.println("Reading and sending data done.");
-    digitalWrite(D3, LOW);
+  startRead_ms = millis();
+  startPost_ms = millis();
+  startCheck_ms = millis();
+  
+  server.begin();
+}
+void loop() {
+
+  server.handleClient();
+  current_ms = millis();
+
+  if(pumpIsOn){
+    if(current_ms - turnPumpOff_ms >= timeToRunPump_ms){
+      setPump(false);
+    }
   }
+
+  if(current_ms - startRead_ms >= timeBetweenSensorReads_ms){
+    startRead_ms = current_ms;
+    
+    Serial.println("Reading sensors");
+    greenHouseHumidity = readGreenHouseHumidity();
+    greenHouseTemp = readGreenHouseTemp();
+    soilMoisture = readSoilMoisture();
+  }
+  if(current_ms - startPost_ms >= timeBetweenPosts_ms){
+    startPost_ms = current_ms;
+    Serial.println("Posting data");
+    postData(greenHouseTemp, greenHouseHumidity, soilMoisture);
+  }
+  if(current_ms - startCheck_ms >= timeBetweenChecks_ms){
+    startCheck_ms = current_ms;
+    Serial.println("Checking if I should turn the pump on");
+  }
+  delay(100);
 }
 
 bool setPump(bool onOrOff){
   if(onOrOff){
     pumpIsOn = true;
+    turnPumpOff_ms = millis();
     digitalWrite(D3, HIGH);
   }else{
     pumpIsOn = false;
     digitalWrite(D3, LOW);
   }
+  Serial.println("Pump is on: " + String(pumpIsOn));
   return pumpIsOn;
 }
 
@@ -130,11 +162,6 @@ void setupWifi(){
   Serial.println("Starting web server");
 }
 
-void goToSleep(){
-    Serial.println("*** Goodnight ***");
-    ESP.deepSleep(20e6);
-}
-
 void postData(float t, float ah, int sh){
   if((WiFi.status() != WL_CONNECTED)){
     setupWifi();
@@ -151,15 +178,35 @@ void postData(float t, float ah, int sh){
   http.end();
 }
 float readGreenHouseHumidity(){
-  return dht.readHumidity();
+  float numberOfLoops = 5;
+  float sum = 0;
+  for(int i = 0; i< numberOfLoops; i++){
+    sum+=dht.readHumidity();
+    delay(2000);
+  }
+  sum = sum/numberOfLoops;
+  Serial.println("Humidity: " + String(sum));
 }
 float readGreenHouseTemp(){
-  return dht.readTemperature();
+  float sum = 0;
+  float numberOfLoops = 5;
+  for(int i=0; i< numberOfLoops; i++){
+    sum += dht.readTemperature();
+    delay(2000);
+  }
+  sum = sum/numberOfLoops;
+  Serial.println("Temp: " + String(sum));
 }
 int readSoilMoisture(){
   digitalWrite(D4, HIGH);
   delay(10);
-  int m = analogRead(soilMoisturePin);
+  int numberOfLoops = 5;
+  int m=0;
+  for(int i=0; i<numberOfLoops;i++){
+    m += analogRead(soilMoisturePin);
+    delay(100);
+  }
+  m = m/numberOfLoops;
   digitalWrite(D4, LOW);
   Serial.println("Soil moisture: " + String(m));
   return m;
