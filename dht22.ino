@@ -34,10 +34,10 @@ int soilMoisture;
 int soilMoisturePin = A0;
 
 bool pumpIsOn = false;
-const unsigned long timeBetweenPosts_ms = 1 * 60 * 60 * 1000;  // Once every hour;
-const unsigned long timeBetweenSensorReads_ms = 0.5 * 60 * 60 * 1000; // Once every half hour;
-const unsigned long timeBetweenChecks_ms = 10000;
-const unsigned long timeToRunPump_ms = 30 * 1000;
+const unsigned long timeBetweenPosts_ms = 1 * 60 * 60 * 1000;  // Once every hour
+const unsigned long timeBetweenSensorReads_ms = 0.5 * 60 * 60 * 1000; // Once every half hour
+const unsigned long timeBetweenChecks_ms = 1 * 60 * 60 * 1000; // Once every hour
+const unsigned long timeToRunPump_ms = 30 * 1000; // 30s
 
 
 
@@ -73,13 +73,16 @@ void setup() {
   setupWifi();
     
   server.on("/", [](){
+    server.sendHeader("Access-Control-Allow-Origin", "*");
     server.send(200, "text/html", "");
   });
   server.on("/status",[](){
+    server.sendHeader("Access-Control-Allow-Origin", "*");
     server.send(200, "text/html", pumpIsOn?"1":"0");
   });
   server.on("/flip",[](){
     setPump(!pumpIsOn);
+    server.sendHeader("Access-Control-Allow-Origin", "*");
     server.send(200, "text/html", pumpIsOn?"1":"0"  );
   });
   greenHouseHumidity = readGreenHouseHumidity();
@@ -119,8 +122,24 @@ void loop() {
   if(current_ms - startCheck_ms >= timeBetweenChecks_ms){
     startCheck_ms = current_ms;
     Serial.println("Checking if I should turn the pump on");
+    if(checkLogic()){
+      setPump(true);
+    }
   }
   delay(100);
+}
+bool checkLogic(){
+  if((WiFi.status() != WL_CONNECTED)){
+    setupWifi();
+  }
+  HTTPClient http;
+  http.begin("http://www.90000.eu/gh/q.php");
+  int code = http.GET();
+  String reply = http.getString();
+  Serial.println("Reply code: " + String(code));
+  Serial.println("Reply     : " + reply);
+  http.end();
+  return reply == "1" && code == 200;;  
 }
 
 bool setPump(bool onOrOff){
