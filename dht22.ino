@@ -2,13 +2,6 @@
 
 #include <Adafruit_Sensor.h>
 
-/**
- * Example for reading temperature and humidity
- * using the DHT22 and ESP8266
- *
- * Copyright (c) 2016 Losant IoT. All rights reserved.
- * https://www.losant.com
- * */
 #include "DHT.h"
 #include <ESP8266WiFi.h>
 #include <WiFiClient.h> 
@@ -22,9 +15,8 @@
 #define SOILMOISTUREPOWER D4  // Power to the soil moisture sensor = blue diode
 DHT dht(DHTPIN, DHTTYPE);
 const char *ssId ="honey";
-const char *password ="biffenbamse";
+const char *password ="XXXXXXXXXXX";
 
-// const char *host = "www.90000.eu/gh/mcusd.php";
 bool readTemp = false;
 int numberOfLoopsBetweenWrites = 100;
 int loopCounter = numberOfLoopsBetweenWrites;
@@ -34,13 +26,12 @@ int soilMoisture;
 int soilMoisturePin = A0;
 
 bool pumpIsOn = false;
-const unsigned long timeBetweenPosts_ms = 1 * 60 * 60 * 1000;  // Once every hour
+const unsigned long timeBetweenPosts_ms = 1 * 60 * 60 * 1000;         // Once every hour
 const unsigned long timeBetweenSensorReads_ms = 0.5 * 60 * 60 * 1000; // Once every half hour
-const unsigned long timeBetweenChecks_ms = 1 * 60 * 60 * 1000; // Once every hour
-const unsigned long timeToRunPump_ms = 30 * 1000; // 30s
+const unsigned long timeBetweenChecks_ms = 1 * 60 * 60 * 1000;        // Once every hour
+const unsigned long timeToRunPump_ms = 30 * 1000;                     // 30s max pump run time
 
-
-
+// Timers
 unsigned long startPost_ms;
 unsigned long startRead_ms;
 unsigned long startCheck_ms;
@@ -101,25 +92,24 @@ void loop() {
   current_ms = millis();
 
   if(pumpIsOn){
-    if(current_ms - turnPumpOff_ms >= timeToRunPump_ms){
+    if(timerHasRunOut(current_ms, turnPumpOff_ms,timeToRunPump_ms)){
       setPump(false);
     }
   }
 
-  if(current_ms - startRead_ms >= timeBetweenSensorReads_ms){
+  if(timerHasRunOut(current_ms, startRead_ms, timeBetweenSensorReads_ms)){
     startRead_ms = current_ms;
-    
     Serial.println("Reading sensors");
     greenHouseHumidity = readGreenHouseHumidity();
     greenHouseTemp = readGreenHouseTemp();
     soilMoisture = readSoilMoisture();
   }
-  if(current_ms - startPost_ms >= timeBetweenPosts_ms){
+  if(timerHasRunOut(current_ms, startPost_ms, timeBetweenPosts_ms)){
     startPost_ms = current_ms;
     Serial.println("Posting data");
     postData(greenHouseTemp, greenHouseHumidity, soilMoisture);
   }
-  if(current_ms - startCheck_ms >= timeBetweenChecks_ms){
+  if(timerHasRunOut(current_ms, startCheck_ms, timeBetweenChecks_ms)){
     startCheck_ms = current_ms;
     Serial.println("Checking if I should turn the pump on");
     if(checkLogic()){
@@ -128,6 +118,11 @@ void loop() {
   }
   delay(100);
 }
+
+bool timerHasRunOut(long currentTime, long lastRunTime, long interval){
+  return currentTime - lastRunTime >= interval;
+}
+
 bool checkLogic(){
   if((WiFi.status() != WL_CONNECTED)){
     setupWifi();
@@ -188,7 +183,7 @@ void postData(float t, float ah, int sh){
   HTTPClient http;
   String d = "data={\"t\":" + String(t) + ",\"ah\":" + String(ah) +",\"sh\":" + String(sh) +"}";
   Serial.println("Data: " + d);
-  http.begin("http://www.90000.eu/gh/mcusd.php");
+  http.begin("http://www.90000.eu/gh/xxxxx.php");
   http.addHeader("Content-Type", "application/x-www-form-urlencoded");
   int code = http.POST(d);
   String reply = http.getString();
