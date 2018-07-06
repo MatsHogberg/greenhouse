@@ -205,6 +205,7 @@ float readGreenHouseHumidity(){
   }
   sum = sum/numberOfLoops;
   Serial.println("Humidity: " + String(sum));
+  return sum;
 }
 float readGreenHouseTemp(){
   float sum = 0;
@@ -215,6 +216,7 @@ float readGreenHouseTemp(){
   }
   sum = sum/numberOfLoops;
   Serial.println("Temp: " + String(sum));
+  return sum;
 }
 int readSoilMoisture(){
   digitalWrite(D4, HIGH);
