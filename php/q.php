@@ -7,6 +7,7 @@
     $sunDownString = $sunUpDown->results->sunset;
     $nu = time();
     $afterSunset = $nu > strtotime($sunDownString);
+    //$afterSunset = true;
     if($afterSunset){
         $conn = openDb($dbConnection, $dbUser, $dbPassword, $database);
         $r = getTempAndHumidity($conn);
@@ -31,7 +32,9 @@
             }
         }
         $ret->humidity = $h;
-        }
+        return $ret;
+    }
+        
     function openDb($dbConnection, $dbUser, $dbPassword, $database){
         $mysqli = new mysqli("$dbConnection", "$dbUser", "$dbPassword", "$database");
         if($mysqli->connect_errno){
